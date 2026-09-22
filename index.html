@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel SIM SIM.23.03#3.5</title>
+    <title>Painel SIM SIM.23.09#1</title>
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Inter -->
@@ -244,7 +244,7 @@
             activeStudentTab: 'ativos'
         };
 
-        const currentVersion = 'SIM.23.03#3.5';
+        const currentVersion = 'SIM.23.09#1';
         const lifeStages = ['Bebê', 'Criança', 'Pré-adolescente', 'Adolescente', 'Adulto', 'Idoso'];
         const genders = ['Homem', 'Mulher', 'Homem Trans', 'Mulher Trans', 'Não-Binário'];
         const ethnicities = ['Asiático(a)', 'Branco(a)', 'Pardo(a)', 'Negro(a)'];
@@ -863,7 +863,8 @@
                     <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]"><h3 class="font-bold text-lg mb-2">População por Gênero</h3><canvas id="gender-chart"></canvas></div>
                     <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]"><h3 class="font-bold text-lg mb-2">População por Etnia</h3><canvas id="ethnicity-chart"></canvas></div>
                     <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]"><h3 class="font-bold text-lg mb-2">População por Região</h3><canvas id="region-chart"></canvas></div>
-                    <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color] lg:col-span-2"><h3 class="font-bold text-lg mb-2">Empresas por Setor</h3><canvas id="business-sector-chart"></canvas></div>
+                    <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]"><h3 class="font-bold text-lg mb-2">Classes sociais dos moradores</h3><p class="text-xs text-[--text-secondary] mb-2">Classificação baseada no saldo atual dos moradores vivos.</p><canvas id="social-class-chart"></canvas></div>
+                    <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]"><h3 class="font-bold text-lg mb-2">Empresas por Setor</h3><canvas id="business-sector-chart"></canvas></div>
                 </div>
             </div>`;
         }
@@ -1149,6 +1150,25 @@
                 </div>`;
             }
 
+            const students = state.residents.filter(r => (r.education || []).some(edu => edu.businessId === biz.id));
+            const studentsHTML = students.flatMap(student => (student.education || [])
+                .map((edu, idx) => ({ edu, idx }))
+                .filter(({ edu }) => edu.businessId === biz.id)
+                .filter(({ edu }) => state.activeStudentTab === 'formados' ? edu.status === 'Formado(a)' : edu.status !== 'Formado(a)')
+                .map(({ edu, idx }) => `<div class="p-3 rounded-lg border border-[--border-color] bg-[--bg-color] mb-2">
+                    <p class="font-semibold">${student.firstName} ${student.lastName}</p>
+                    <p class="text-sm text-[--text-secondary]">${edu.course} · ${edu.status}</p>
+                    <div class="flex gap-2 flex-wrap mt-2">
+                        ${edu.status !== 'Formado(a)' ? `<button data-action="update-student-status" data-resident-id="${student.id}" data-edu-index="${idx}" data-status="Formado(a)" class="text-xs bg-green-600 text-white px-3 py-2 rounded">Concluir curso</button>` : ''}
+                        ${edu.status === 'Formado(a)' ? `<button data-action="update-student-status" data-resident-id="${student.id}" data-edu-index="${idx}" data-status="Cursando" class="text-xs border border-[--border-color] px-3 py-2 rounded">Reabrir matrícula</button>` : ''}
+                        <button data-action="view-profile" data-type="resident" data-id="${student.id}" class="text-xs border border-[--border-color] px-3 py-2 rounded">Ver perfil</button>
+                    </div>
+                </div>`)).join('');
+            const educationSectionHTML = `<section class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]">
+                <div class="flex justify-between items-center gap-2 mb-3"><h3 class="font-bold text-lg">Alunos e matrículas</h3><button data-action="open-modal" data-modal-type="add-student" data-id="${biz.id}" class="bg-[--sims-green-dark] text-white text-xs px-3 py-2 rounded">+ Matricular</button></div>
+                <div class="flex gap-2 mb-3"><button data-action="set-student-tab" data-tab="ativos" class="px-3 py-2 text-xs border rounded ${state.activeStudentTab === 'ativos' ? 'font-bold border-green-600' : 'border-[--border-color]'}">Em andamento / outros</button><button data-action="set-student-tab" data-tab="formados" class="px-3 py-2 text-xs border rounded ${state.activeStudentTab === 'formados' ? 'font-bold border-green-600' : 'border-[--border-color]'}">Formados</button></div>
+                ${studentsHTML || '<p class="text-sm text-[--text-secondary]">Nenhum aluno nesta categoria.</p>'}
+            </section>`;
             const bal = biz.balance || 0;
 
             return `<div class="page-content p-4 md:p-6 space-y-6">
@@ -1217,6 +1237,7 @@
                 </div>
 
                 ${bankSectionHTML}
+                ${biz.sector === 'Educação' ? educationSectionHTML : ''}
 
                 <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-lg text-[--sims-green-dark]">Unidades e Filiais</h3><button data-action="open-modal" data-modal-type="add-branch" data-id="${biz.id}" class="bg-[--sims-green-dark] text-white px-3 py-1 rounded-full text-xs font-bold">+ Adicionar Unidade</button></div><div class="space-y-2">${branchesHTML || '<p class="text-sm italic text-[--text-secondary] text-center py-2">Nenhuma filial cadastrada.</p>'}</div></div>
                 <div class="bg-[--card-bg] p-4 rounded-lg shadow-sm border border-[--border-color]"><div class="flex justify-between items-center mb-2"><h3 class="font-semibold text-lg">Funcionários (Sede)</h3><button data-action="open-modal" data-modal-type="add-employee" data-id="${biz.id}" class="bg-[--sims-green-vibrant] text-white px-3 py-1 rounded-full text-sm font-semibold hover:bg-green-500 transition"><i data-lucide="user-plus" class="h-4 w-4"></i> Contratar</button></div><div class="space-y-2">${employeesHTML || '<p class="text-[--text-secondary] italic text-center py-4">Nenhum funcionário na sede.</p>'}</div></div>
@@ -1875,7 +1896,7 @@
                 case 'add-student': {
                     const business = state.businesses.find(b => b.id === dataId); if (!business) return;
                     title = `Matricular Aluno em ${business.name}`; formId = 'student-form'; submitAction = 'add-student';
-                    const eligibleStudents = state.residents.filter(r => !r.isDeceased && !r.education?.some(edu => edu.businessId === dataId) && !['Bebê', 'Criança'].includes(r.lifeStage));
+                    const eligibleStudents = state.residents.filter(r => !r.isDeceased && true && !['Bebê', 'Criança'].includes(r.lifeStage));
                     const courseOptions = business.courses?.map(c => ({ value: c, text: c })) || [];
                     if (eligibleStudents.length === 0 || courseOptions.length === 0) {
                         contentHTML = '<p class="text-center py-4">Não há alunos ou cursos disponíveis.</p>';
@@ -2149,7 +2170,7 @@
                         const amount = parseFloat(data.amount);
                         const bankRef = doc(db, "businesses", data.bankId);
                         const borrowerType = state.residents.some(r => r.id === data.borrowerId) ? 'residents' : 'businesses';
-                        const borrowerRef = doc(db, loan.borrowerType, data.borrowerId);
+                        const borrowerRef = doc(db, borrowerType, data.borrowerId);
                         const bankDoc = await getDoc(bankRef);
                         const borrowerDoc = await getDoc(borrowerRef);
                         const batch = writeBatch(db);
@@ -2325,6 +2346,7 @@
                 closeModal();
             } catch (error) {
                 console.error("Erro no Firebase:", error);
+                alert(`Não foi possível salvar: ${error.message || 'erro desconhecido'}`);
             }
         }
 
@@ -2730,7 +2752,9 @@
             const residentRef = doc(db, "residents", residentId);
             const resDoc = await getDoc(residentRef);
             const newEducation = { businessId, course, status };
-            const updated = (resDoc.data().education || []).filter(edu => edu.businessId !== businessId);
+            if (!resDoc.exists()) throw new Error('Morador não encontrado.');
+            const updated = [...(resDoc.data().education || [])];
+            if (updated.some(edu => edu.businessId === businessId && edu.course === course)) throw new Error('Matrícula já cadastrada neste curso.');
             updated.push(newEducation); await updateDoc(residentRef, { education: updated });
         }
 
@@ -2741,7 +2765,9 @@
 
         async function handleDeleteRelationship(residentId, index) {
             const sim = state.residents.find(r => r.id === residentId); if (!sim) return;
-            const newRels = [...(sim.relationships || [])]; newRels.splice(index, 1);
+            const newRels = [...(sim.relationships || [])];
+            if (!Number.isInteger(index) || index < 0 || index >= newRels.length) return;
+            newRels.splice(index, 1);
             await updateDoc(doc(db, "residents", residentId), { relationships: newRels });
         }
 
@@ -2803,23 +2829,26 @@
         function generateReport(type) {
             let out = `### REGISTRO DETALHADO SIM - ${new Date().toLocaleString('pt-BR')}\n==========================\n\n`;
             if (type === 'residents') {
+                const residentName = id => { const sim = state.residents.find(x => x.id === id); return sim ? `${sim.firstName} ${sim.lastName}` : 'Registro não encontrado'; };
                 state.residents.filter(r => !r.isDeceased).forEach(r => {
                     const hasWallet = !['Bebê', 'Criança', 'Pré-adolescente'].includes(r.lifeStage);
-                    const sc = getSocialClass(r.balance || 0);
-                    out += `NOME: ${r.firstName} ${r.lastName}\nFASE: ${r.lifeStage}\n`;
-                    if (hasWallet) out += `SALDO: 🪙 ${r.balance?.toLocaleString() || 0} [${sc.label}]\n`;
-                    out += `REGIÃO: ${state.regions.find(reg => reg.id === r.regionId)?.name || 'S/R'}\nOCUPAÇÕES:\n`;
-                    if (r.employment?.length) {
-                        r.employment.forEach(j => {
-                            const b = state.businesses.find(x => x.id === j.businessId);
-                            out += `- ${j.position} em ${b?.name || '?'} (Salário Ciclo: ${j.salary || 0})\n`;
-                        });
-                    } else out += ` - Desempregado(a)\n`;
+                    out += `NOME: ${r.firstName} ${r.lastName}\nFASE: ${r.lifeStage || 'Não informada'}\nGÊNERO: ${r.gender || 'Não informado'}\nETNIA: ${r.ethnicity || 'Não informada'}\n`;
+                    if (hasWallet) out += `SALDO: 🪙 ${Number(r.balance || 0).toLocaleString('pt-BR')} [${getSocialClass(Number(r.balance) || 0).label}]\n`;
+                    out += `REGIÃO: ${state.regions.find(reg => reg.id === r.regionId)?.name || 'Não informada'}\n\nRELAÇÕES FAMILIARES E AFETIVAS:\n`;
+                    out += r.relationships?.length ? r.relationships.map(rel => `- ${rel.type}: ${residentName(rel.residentId)}`).join('\n') + '\n' : '- Nenhuma relação cadastrada.\n';
+                    out += `\nTRABALHO ATUAL:\n`;
+                    out += r.employment?.length ? r.employment.map(job => { const biz = state.businesses.find(b => b.id === job.businessId); const branch = state.branches.find(b => b.id === job.branchId); return `- ${job.position || 'Cargo não informado'} em ${biz?.name || 'Empresa não encontrada'}${branch ? ` / ${branch.name}` : ''} (Salário por ciclo: 🪙 ${Number(job.salary || 0).toLocaleString('pt-BR')})`; }).join('\n') + '\n' : '- Nenhum emprego atual cadastrado.\n';
+                    out += `\nHISTÓRICO PROFISSIONAL:\n`;
+                    const pastJobs = (r.history || []).filter(entry => entry.type === 'job');
+                    out += pastJobs.length ? pastJobs.map(entry => `- ${entry.status || 'Registro'}: ${entry.location || 'Local não informado'}${entry.position ? ` (${entry.position})` : ''}`).join('\n') + '\n' : '- Nenhum emprego anterior registrado.\n';
+                    out += `\nFORMAÇÃO E ESTUDOS:\n`;
+                    out += r.education?.length ? r.education.map(edu => `- ${edu.course}: ${edu.status} — ${state.businesses.find(b => b.id === edu.businessId)?.name || 'Instituição não encontrada'}`).join('\n') + '\n' : '- Nenhuma formação cadastrada.\n';
                     out += `--------------------------\n\n`;
                 });
             } else if (type === 'businesses') {
                 state.businesses.forEach(b => {
-                    out += `EMPRESA: ${b.name}\nSALDO: 🪙 ${b.balance?.toLocaleString() || 0}\nSETOR: ${b.sector}\nTIPO: ${b.isPublicBody ? 'Órgão Público' : 'Privada'}\n--------------------------\n\n`;
+                    const owner = state.residents.find(r => r.id === b.ownerId);
+                    out += `EMPRESA: ${b.name}\nRESPONSÁVEL: ${owner ? `${owner.firstName} ${owner.lastName}` : 'Em aberto / não cadastrado'}\nSALDO: 🪙 ${Number(b.balance || 0).toLocaleString('pt-BR')}\nSETOR: ${b.sector}\nTIPO: ${b.isPublicBody ? 'Órgão Público' : 'Privada'}\nREGIÃO: ${state.regions.find(r => r.id === b.regionId)?.name || 'Não informada'}\n--------------------------\n\n`;
                 });
             } else if (type === 'politics') {
                 out += `CENÁRIO POLÍTICO COMPLETO\n\n--- PODER EXECUTIVO ---\n`;
@@ -2831,8 +2860,8 @@
                     out += `${m.name}: ${holder ? `${holder.firstName} ${holder.lastName}` : 'CARGO VAGO'} (Salário do Tesouro: 🪙 ${sal.toLocaleString()})\n`;
                 });
             } else if (type === 'obituary') {
-                const dead = state.residents.filter(r => r.isDeceased);
-                dead.forEach(r => out += `+ ${r.firstName} ${r.lastName} [† ${new Date(r.deathDate?.seconds * 1000).toLocaleDateString('pt-BR')}]\n`);
+                const dead = state.residents.filter(r => r.isDeceased).sort((a, b) => (a.deathDate?.seconds ?? Infinity) - (b.deathDate?.seconds ?? Infinity));
+                dead.forEach(r => out += `+ ${r.firstName} ${r.lastName} [† ${r.deathDate?.seconds ? new Date(r.deathDate.seconds * 1000).toLocaleDateString('pt-BR') : 'Data não informada'}]\n`);
             } else if (type === 'finance-transparency') {
                 out += `RELATÓRIO FINANCEIRO MASTER (DIÁRIO OFICIAL)\n\n--- COFRE PÚBLICO (TESOURO) ---\nSaldo Atual: 🪙 ${state.financeConfig.treasuryBalance?.toLocaleString() || 0}\n\n`;
                 
@@ -2921,6 +2950,12 @@
                 const rCounts = state.regions.map(region => ({ name: region.name, count: state.residents.filter(r => !r.isDeceased && r.regionId === region.id).length }));
                 state.charts.region = new Chart(regionCtx, { type: 'bar', data: { labels: rCounts.map(r => r.name), datasets: [{ label: 'Moradores', data: rCounts.map(r => r.count), backgroundColor: chartColors }] }, options: { scales: { y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }, x: { ticks: { color: textColor }, grid: { color: gridColor } } }, plugins: { legend: { display: false } } } });
             }
+            const socialCtx = document.getElementById('social-class-chart')?.getContext('2d');
+            if (socialCtx) {
+                const categories = ['Devedor', 'Miserável', 'Pobre', 'Classe Média', 'Rico', 'Magnata'];
+                const counts = categories.map(label => state.residents.filter(r => !r.isDeceased && getSocialClass(Number(r.balance) || 0).label === label).length);
+                state.charts.socialClass = new Chart(socialCtx, { type: 'bar', data: { labels: categories, datasets: [{ label: 'Moradores', data: counts, backgroundColor: chartColors }] }, options: { scales: { y: { beginAtZero: true, ticks: { precision: 0, color: textColor } }, x: { ticks: { color: textColor } } }, plugins: { legend: { display: false } } } });
+            }
             const sectorCtx = document.getElementById('business-sector-chart')?.getContext('2d');
             if (sectorCtx) {
                 const sCounts = state.businesses.reduce((acc, b) => { acc[b.sector] = (acc[b.sector] || 0) + 1; return acc; }, {});
@@ -2965,7 +3000,16 @@
                 case 'toggle-dark-mode':
                     document.documentElement.classList.toggle('dark');
                     localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); render(); break;
-                case 'delete-relationship': handleDeleteRelationship(target.dataset.simAId, parseInt(relIndex)); break;
+                case 'delete-relationship': {
+                    const resident = state.residents.find(r => r.id === target.dataset.simAId);
+                    const relation = resident?.relationships?.[Number(relIndex)];
+                    if (!relation) break;
+                    const relative = state.residents.find(r => r.id === relation.residentId);
+                    const relativeName = relative ? `${relative.firstName} ${relative.lastName}` : 'este morador';
+                    if (window.confirm(`Remover a relação ${relation.type} com ${relativeName}?`)) {
+                        handleDeleteRelationship(resident.id, Number(relIndex)).catch(error => { console.error(error); alert('Não foi possível remover a relação.'); });
+                    }
+                } break;
                 case 'delete-election-history': deleteDoc(doc(db, "electionHistory", id)); break;
                 case 'delete-tax': deleteDoc(doc(db, "taxes", id)); break;
                 case 'delete-special-tax': deleteDoc(doc(db, "specialTaxes", id)); break;
@@ -3007,6 +3051,18 @@
                 case 'end-election': setDoc(doc(db, "election", "current"), { isActive: false }); break;
                 case 'remove-member': updateDoc(doc(db, "residents", target.dataset.residentId), { partyId: null }); break;
                 case 'set-student-tab': state.activeStudentTab = tab; render(); break;
+                case 'update-student-status': {
+                    const residentId = target.dataset.residentId;
+                    const idx = Number(target.dataset.eduIndex);
+                    const resident = state.residents.find(r => r.id === residentId);
+                    if (!resident || !Number.isInteger(idx) || !resident.education?.[idx]) break;
+                    const previous = resident.education[idx];
+                    const status = target.dataset.status;
+                    if (!studentStatuses.includes(status)) break;
+                    if (!window.confirm(`Alterar ${previous.course} para ${status}?`)) break;
+                    const education = resident.education.map((edu, i) => i === idx ? { ...edu, status, ...(status === 'Formado(a)' ? { completedAt: new Date().toISOString() } : { completedAt: null }) } : edu);
+                    updateDoc(doc(db, 'residents', residentId), { education }).catch(error => { console.error(error); alert('Não foi possível alterar a matrícula.'); });
+                } break;
                 case 'generate-report': generateReport(target.dataset.reportType); break;
                 case 'copy-report':
                     const textarea = document.getElementById('report-textarea'); textarea.select(); document.execCommand('copy');
